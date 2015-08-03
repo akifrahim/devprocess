@@ -5,24 +5,33 @@ from jira import JIRA
 import sys
 import json
 
-#TODO: Move these defautls to config file
-config_file_path = os.path.join(os.path.expanduser("~"), ".devconfig")
-jira_url = "http://jira"
-project_name = "Test EOS"
-board_name = "Test EOS"
-triage_epic_name = "Production Bugs"
-triage_priority_blocker_name = "Blocker"
+#TODO: Do all of these
+# store password in keyring
+# tests (unit/functional)
+# logging
+# package/install (PyPy)
+# refactor (config/init command)
+
+#TODO: Move these defaults to config file
+CONFIG_FILE_PATH = os.path.join(os.path.expanduser("~"), ".devconfig")
+JIRA_URL = "http://jira"
+PROJECT_NAME = "Test EOS"
+BOARD_NAME = "Test EOS"
+TRIAGE_EPIC_NAME = "Production Bugs"
+TRIAGE_PRIORITY_BLOCKER_NAME = "Blocker"
+BUG_TYPE_NAME = "Bug"
+DEFAULT_ASSIGNEE_NAME = "arahim"
 
 def triage(args):
-    print args
-    print "IN TRIAGE"
-    print "Issue Key: {0}".format(args.issuekey)
+    #print args
+    #print "IN TRIAGE"
+    #print "Issue Key: {0}".format(args.issuekey)
     
     issue_key = args.issuekey
     story_points = args.storypoints
     assignee_name = args.assignee
     
-    jira =  JIRA(jira_url, basic_auth=(args.user, args.password))
+    jira =  JIRA(JIRA_URL, basic_auth=(args.user, args.password))
     issue = jira.issue(issue_key)
     
     #All of this should move to a config file eventually
@@ -49,17 +58,17 @@ def triage(args):
             sprint_field_name = field["id"]
     
     for p in jira.priorities():
-        if p.name == triage_priority_blocker_name:
+        if p.name == TRIAGE_PRIORITY_BLOCKER_NAME:
             priority_blocker = p
             break
 
     if not priority_blocker:
         print 'Could not find a priority named "Blocker". Issue will not be triaged properly\n'
 
-    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(project_name, triage_epic_name))
+    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, TRIAGE_EPIC_NAME))
     
     if not epic_issue:
-        print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(triage_epic_name)
+        print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(TRIAGE_EPIC_NAME)
     
     #get the current Sprint - DO NOT move this to a config file as this will change often
     #it should always be found on every invocation
@@ -67,12 +76,12 @@ def triage(args):
     
     board_id = None
     for board in jira.boards():
-        if board.name == board_name:
+        if board.name == BOARD_NAME:
             board_id = board.id
             break
     
     if not board_id:
-        print 'Unable to find board "{0}" Will not be able to assign the issue to the active sprint'.format(board_name)
+        print 'Unable to find board "{0}" Will not be able to assign the issue to the active sprint'.format(BOARD_NAME)
     
     sprint_id = None
     for sprint in jira.sprints(board_id, True):
@@ -125,10 +134,13 @@ def triage(args):
 #        "assignee": { "name": assignee_name } 
 #
 #    }
-
-    print data
+    
+    #TODO: add a debug log and write the following to it
+    #print data
 
     issue.update(fields=data)
+
+    print "Issue {0} Triaged successfully".format(issue.key)
 
             #story points
             #customfield_10004=5, 
@@ -139,7 +151,32 @@ def triage(args):
 
 
 def blocker(args):
-    print args
+    #print args
+    message = args.message
+
+    jira =  JIRA(JIRA_URL, basic_auth=(args.user, args.password))
+
+    project_key = next((p.key for p in jira.projects() if p.name == PROJECT_NAME), None)
+
+    if not project_key:
+        print "Unable to find project {0}. Failed to create a new issue."
+        return
+
+    data = {
+        "project": project_key,
+        "issuetype": { "name": BUG_TYPE_NAME },
+        "priority": { "name": TRIAGE_PRIORITY_BLOCKER_NAME },
+        "assignee": { "name": DEFAULT_ASSIGNEE_NAME },
+        "summary": message
+
+    }
+
+    issue = jira.create_issue(data)
+
+    print 'Bug {0} created and assigned a priority of "Blocker"\n' \
+            'This needs to be triaged immediately. For help with triage enter: \n' \
+            './devprocess triage --help'.format(issue.key)
+    
 
 def parse_arguments():
     #parser = argparse.ArgumentParser()
@@ -166,7 +203,7 @@ def parse_arguments():
     parser_blocker.set_defaults(func=blocker)
 
     args = parser.parse_args()
-    print args 
+    #print args 
     args.func(args)
 
 def process():
