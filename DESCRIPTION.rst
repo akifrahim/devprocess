@@ -22,17 +22,21 @@ When running the first time setup defaults by::
 Usage
 =====
 
-To get help::
-
-./devprocess --help
-
+Report a Bug
+------------
 When a new "Blocker" high priority Bug is encountered in the Production environment enter::
 
 ./devprocess blocker --summary=<Issue encountered in Component X>
-
 *Bug TE-8 created and assigned a priority of "Blocker"
 This needs to be triage immediately. For help with triage enter:
 ./devprocess triage --help*
+
+This will create a Bug and set:
+* Project: Test EOS (from config above)
+* Priority: Blocker
+
+Triage
+------
 
 To Triage this ticket enter::
 
@@ -45,6 +49,16 @@ This will triage issue TE-8 by setting:
 * Epic Link: Production Bugs (Based on the config command above int eh Setup section)
 * Sprint: <Current Active Sprint>
 
+Help
+====
+
+To get help::
+
+./devprocess --help
+
+./devprocess blocker --help
+
+./devprocess triage --help
 
 Typical contents for this file would include an overview of the project, basic
 usage examples, etc. Generally, including the project changelog in here is not
