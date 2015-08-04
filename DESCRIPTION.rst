@@ -26,7 +26,7 @@ Report a Bug
 ------------
 When a new "Blocker" high priority Bug is encountered in the Production environment enter::
 
-./devprocess blocker --summary=<Issue encountered in Component X>
+./devprocess blocker --summary="Issue encountered in Component X"
 *Bug TE-8 created and assigned a priority of "Blocker"
 This needs to be triage immediately. For help with triage enter:
 ./devprocess triage --help*

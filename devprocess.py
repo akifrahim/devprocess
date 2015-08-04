@@ -2,6 +2,8 @@
 import argparse
 import os
 from jira import JIRA
+import ConfigParser
+import keyring
 import sys
 import json
 
@@ -17,10 +19,66 @@ CONFIG_FILE_PATH = os.path.join(os.path.expanduser("~"), ".devconfig")
 JIRA_URL = "http://jira"
 PROJECT_NAME = "Test EOS"
 BOARD_NAME = "Test EOS"
-TRIAGE_EPIC_NAME = "Production Bugs"
+EPIC_NAME = "Production Bugs"
 TRIAGE_PRIORITY_BLOCKER_NAME = "Blocker"
 BUG_TYPE_NAME = "Bug"
 DEFAULT_ASSIGNEE_NAME = "arahim"
+
+
+def config(args):
+    #store in config file
+
+    print args
+
+    config = ConfigParser.RawConfigParser()
+    config.add_section("Defaults")
+    config.set("Defaults", "epic_name", args.epic_name)
+    config.set("Defaults", "board_name", args.boardname)
+    config.set("Defaults", "project_name", args.projectname)
+    config.set("Defaults", "user", args.user)
+
+    #store password in keyring
+    keyring.set_password("devprocess", args.user, args.password)
+
+    with open(CONFIG_FILE_PATH, "w") as f:
+        config.write(f)
+
+    #validate config settings
+
+    print "Validating configuration parameters..."
+    try:
+        jira = JIRA(args.jira_url, basic_auth=(args.user, keyring.get_password("devprocess", args.user)))
+    except Exception as e:
+        if e.status_code == 403:
+            print "Invalid username/password. Unable to connect to JIRA. Try again."
+            return
+
+        print "Unable to connect to JIRA. Make sure you are on VPN or can get to your JIRA server from this network"
+        return
+
+    project = next((b for b in jira.projects() if b.name == args.projectname), None)
+    if not project:
+        print 'Unable to find project named "{0}". Ensure that it exists and try again.'.format(args.projectname)
+        return
+
+    epic = jira.search_issues('"Epic Name" = "{0}" AND project = "{1}"'.format(args.epic_name, args.projectname))
+    if not epic:
+        print 'Unable to find epic named "{0}" in project "{1}". Creating it...'.format(args.epic_name, args.projectname)
+
+        #TODO: Move all the config here - get epic field name
+        jira.create_issue(
+            "Epic Name"=args.epic_name,
+            "issuetype": "name": "Epic" }
+        })
+
+    board = next((b for b in jira.boards if b.name == args.boardname), None)
+    if not board:
+        print 'Unable to find an Agile board named "{0}"". Check and try again.'.format(args.boardname)
+        return
+
+    print "Default Configuration set succesfully."
+
+
 
 def triage(args):
     #print args
@@ -65,10 +123,10 @@ def triage(args):
     if not priority_blocker:
         print 'Could not find a priority named "Blocker". Issue will not be triaged properly\n'
 
-    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, TRIAGE_EPIC_NAME))
+    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, EPIC_NAME))
     
     if not epic_issue:
-        print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(TRIAGE_EPIC_NAME)
+        print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(EPIC_NAME)
     
     #get the current Sprint - DO NOT move this to a config file as this will change often
     #it should always be found on every invocation
@@ -142,17 +200,10 @@ def triage(args):
 
     print "Issue {0} Triaged successfully".format(issue.key)
 
-            #story points
-            #customfield_10004=5, 
-            #customfield_10300='Production Bugs', 
-            #customfield_10219='216'
-            #)
-
-
 
 def blocker(args):
     #print args
-    message = args.message
+    summary = args.summary
 
     jira =  JIRA(JIRA_URL, basic_auth=(args.user, args.password))
 
@@ -167,7 +218,7 @@ def blocker(args):
         "issuetype": { "name": BUG_TYPE_NAME },
         "priority": { "name": TRIAGE_PRIORITY_BLOCKER_NAME },
         "assignee": { "name": DEFAULT_ASSIGNEE_NAME },
-        "summary": message
+        "summary": summary
 
     }
 
@@ -181,11 +232,26 @@ def blocker(args):
 def parse_arguments():
     #parser = argparse.ArgumentParser()
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('--user', action="store")
-    parser.add_argument('--password', action="store")
+    #parser.add_argument('--user', action="store")
+    #parser.add_argument('--password', action="store")
     #parser.add_argument("command", choices=["triage", "create"])
     #help="triage a Bug as a Blocker in JIRA")
     sub_parsers = parser.add_subparsers()
+
+    #define the config command
+    #requiredNamed = sub_parsers.add_argument_group('required named arguments')
+    parser_config = sub_parsers.add_parser("config", help="Required named arguments to set defaults.")
+    #parser_config = sub_parsers.add_parser("config", help="Required named arguments to set defaults.")
+    parser_config.add_argument("user", help="JIRA username")
+    parser_config.add_argument("password", help="JIRA password")
+    parser_config.add_argument("projectname", help="JIRA Project Name")
+    parser_config.add_argument("boardname", help="JIRA Agile Board name")
+    parser_config.add_argument("-j", "--jira-url", default="http://jira", help='(default: "%(default)s")', metavar="")
+    parser_config.add_argument("-e", "--epic-name", default="[Ongoing] Production Bugs",
+        help='epic name for triaged bugs (default: "%(default)s")', metavar="")
+    parser_config.set_defaults(func=config)
+
+
     #parser_triage = sub_parsers.add_parser("triage", formatter_class=argparse.RawTextHelpFormatter,
     parser_triage = sub_parsers.add_parser("triage",
             help="triage a JIRA Bug to:\n" \
@@ -197,9 +263,8 @@ def parse_arguments():
     parser_triage.add_argument("assignee", help="JIRA Assignee")
     parser_triage.set_defaults(func=triage)
 
-    parser_blocker = sub_parsers.add_parser("blocker",
-            help="create a new JIRA Bug and set its Priority to 'Blocker'")
-    parser_blocker.add_argument("-m", "--message") 
+    parser_blocker = sub_parsers.add_parser("blocker", help="create a new JIRA Bug and set its Priority to 'Blocker'")
+    parser_blocker.add_argument("summary", help="JIRA Issue Summary")
     parser_blocker.set_defaults(func=blocker)
 
     args = parser.parse_args()
