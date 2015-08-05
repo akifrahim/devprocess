@@ -16,13 +16,14 @@ import json
 
 #TODO: Move these defaults to config file
 CONFIG_FILE_PATH = os.path.join(os.path.expanduser("~"), ".devconfig")
-JIRA_URL = "http://jira"
-PROJECT_NAME = "Test EOS"
-BOARD_NAME = "Test EOS"
-EPIC_NAME = "Production Bugs"
+#JIRA_URL = "http://jira"
+#PROJECT_NAME = "Test EOS"
+#BOARD_NAME = "Test EOS"
+#EPIC_NAME = "Production Bugs"
 TRIAGE_PRIORITY_BLOCKER_NAME = "Blocker"
 BUG_TYPE_NAME = "Bug"
-DEFAULT_ASSIGNEE_NAME = "arahim"
+EPIC_TYPE_NAME = "Epic"
+#DEFAULT_ASSIGNEE_NAME = "arahim"
 
 
 def config(args):
@@ -30,24 +31,11 @@ def config(args):
 
     print args
 
-    config = ConfigParser.RawConfigParser()
-    config.add_section("Defaults")
-    config.set("Defaults", "epic_name", args.epic_name)
-    config.set("Defaults", "board_name", args.boardname)
-    config.set("Defaults", "project_name", args.projectname)
-    config.set("Defaults", "user", args.user)
-
-    #store password in keyring
-    keyring.set_password("devprocess", args.user, args.password)
-
-    with open(CONFIG_FILE_PATH, "w") as f:
-        config.write(f)
-
     #validate config settings
 
     print "Validating configuration parameters..."
     try:
-        jira = JIRA(args.jira_url, basic_auth=(args.user, keyring.get_password("devprocess", args.user)))
+        jira = JIRA(args.jira_url, basic_auth=(args.user, args.password))
     except Exception as e:
         if e.status_code == 403:
             print "Invalid username/password. Unable to connect to JIRA. Try again."
@@ -61,22 +49,86 @@ def config(args):
         print 'Unable to find project named "{0}". Ensure that it exists and try again.'.format(args.projectname)
         return
 
-    epic = jira.search_issues('"Epic Name" = "{0}" AND project = "{1}"'.format(args.epic_name, args.projectname))
-    if not epic:
-        print 'Unable to find epic named "{0}" in project "{1}". Creating it...'.format(args.epic_name, args.projectname)
-
-        #TODO: Move all the config here - get epic field name
-        jira.create_issue(
-            "Epic Name"=args.epic_name,
-            "issuetype": "name": "Epic" }
-        })
-
-    board = next((b for b in jira.boards if b.name == args.boardname), None)
+    board = next((b for b in jira.boards() if b.name == args.boardname), None)
     if not board:
         print 'Unable to find an Agile board named "{0}"". Check and try again.'.format(args.boardname)
         return
 
-    print "Default Configuration set succesfully."
+    # TODO: Get and store all required field names
+    priority_field_name = None
+    story_points_field_name = None
+    epic_link_field_name = None
+    epic_name_field_name = None
+    sprint_field_name = None
+    epic = None
+    priority_blocker = None
+
+    for field in jira.fields():
+        if field["name"] == "Priority":
+            priority_field_name = field["id"]
+        if field["name"] == "Story Points":
+            story_points_field_name = field["id"]
+        if field["name"] == "Epic Link":
+            epic_link_field_name = field["id"]
+        if field["name"] == "Epic Name":
+            epic_name_field_name = field["id"]
+        if field["name"] == "Sprint":
+            sprint_field_name = field["id"]
+
+    for p in jira.priorities():
+        if p.name == TRIAGE_PRIORITY_BLOCKER_NAME:
+            priority_blocker = p
+            break
+
+    if not priority_blocker:
+        print 'Could not find a priority named "Blocker". Ensure it exists and try again.\n'
+        return
+
+    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(
+        args.projectname, args.epic_name))
+
+    if not epic_issue:
+        epic_data = {
+            epic_name_field_name: args.epic_name,
+            "summary": args.epic_name,
+            "issuetype": { "name": EPIC_TYPE_NAME },
+            "project": project.key
+        }
+
+        #print epic_data
+
+        print 'Could not find an Epic named "{0}". Creating it..."\n'.format(args.epic_name)
+
+        try:
+            jira.create_issue(epic_data)
+        except:
+            print "Failure: Unable to create epic named {0}. Create the epic in project {1} and try again.".format(
+                args.epic_name, args.projectname)
+            return
+
+        print "Created epic."
+
+
+    # epic = jira.search_issues('"Epic Name" = "{0}" AND project = "{1}"'.format(args.epic_name, args.projectname))
+    # if not epic:
+    #     print 'Unable to find epic named "{0}" in project "{1}". Creating it...'.format(args.epic_name, args.projectname)
+
+    #save to file
+    config = ConfigParser.RawConfigParser()
+
+    config.add_section("Defaults")
+    config.set("Defaults", "user", '"{0}"'.format(args.user))
+    config.set("Defaults", "project_name", '"{0}"'.format(args.projectname))
+    config.set("Defaults", "board_name", '"{0}"'.format(args.boardname))
+    config.set("Defaults", "epic_name", '"{0}"'.format(args.epic_name))
+
+    #store password in keyring
+    keyring.set_password("devprocess", args.user, args.password)
+
+    with open(CONFIG_FILE_PATH, "w") as f:
+        config.write(f)
+
+    print "Default Configuration set succesfully in {0}".format(CONFIG_FILE_PATH)
 
 
 
@@ -84,7 +136,9 @@ def triage(args):
     #print args
     #print "IN TRIAGE"
     #print "Issue Key: {0}".format(args.issuekey)
-    
+    # TODO: Move these to config
+    # TODO: this should still check for assignee, issuekey and current sprint
+
     issue_key = args.issuekey
     story_points = args.storypoints
     assignee_name = args.assignee
@@ -98,36 +152,36 @@ def triage(args):
     #Priority with a value of "Blocker"
     #Assign it to the current Sprint
     
-    priority_field_name = None
-    story_points_field_name = None
-    epic_field_name = None
-    sprint_field_name = None
-    epic = None
-    priority_blocker = None
-
-    for field in jira.fields():
-        if field["name"] == "Priority":
-            priority_field_name = field["id"]
-        if field["name"] == "Story Points":
-            story_points_field_name = field["id"]
-        if field["name"] == "Epic Link":
-            epic_field_name = field["id"]
-        if field["name"] == "Sprint":
-            sprint_field_name = field["id"]
-    
-    for p in jira.priorities():
-        if p.name == TRIAGE_PRIORITY_BLOCKER_NAME:
-            priority_blocker = p
-            break
-
-    if not priority_blocker:
-        print 'Could not find a priority named "Blocker". Issue will not be triaged properly\n'
-
-    epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, EPIC_NAME))
-    
-    if not epic_issue:
-        print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(EPIC_NAME)
-    
+    # priority_field_name = None
+    # story_points_field_name = None
+    # epic_field_name = None
+    # sprint_field_name = None
+    # epic = None
+    # priority_blocker = None
+    #
+    # for field in jira.fields():
+    #     if field["name"] == "Priority":
+    #         priority_field_name = field["id"]
+    #     if field["name"] == "Story Points":
+    #         story_points_field_name = field["id"]
+    #     if field["name"] == "Epic Link":
+    #         epic_field_name = field["id"]
+    #     if field["name"] == "Sprint":
+    #         sprint_field_name = field["id"]
+    #
+    # for p in jira.priorities():
+    #     if p.name == TRIAGE_PRIORITY_BLOCKER_NAME:
+    #         priority_blocker = p
+    #         break
+    #
+    # if not priority_blocker:
+    #     print 'Could not find a priority named "Blocker". Issue will not be triaged properly\n'
+    #
+    # epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, EPIC_NAME))
+    #
+    # if not epic_issue:
+    #     print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(EPIC_NAME)
+    #
     #get the current Sprint - DO NOT move this to a config file as this will change often
     #it should always be found on every invocation
     current_sprint = None

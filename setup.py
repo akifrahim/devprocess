@@ -14,7 +14,8 @@ from os import path
 here = path.abspath(path.dirname(__file__))
 
 # Get the long description from the relevant file
-with open(path.join(here, 'DESCRIPTION.rst'), encoding='utf-8') as f:
+#with open('/Users/arahim/dev/devprocess/DESCRIPTION.rst', 'r') as f:
+with open(path.join(here, 'DESCRIPTION.rst'), 'r', encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
@@ -26,7 +27,7 @@ setup(
     # TODO: Setup single source versioning
     version='0.9a1',
 
-    description='A sample Python project',
+    description='JIRA Tools',
     long_description=long_description,
 
     # The project's main homepage.
@@ -103,10 +104,11 @@ setup(
     # To provide executable scripts, use entry points in preference to the
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
+    py_modules=['devprocess'],
     # TODO: Create executables
     entry_points={
         'console_scripts': [
-            'sample=sample:main',
+            'devproc=devprocess:process',
         ],
     },
 )
