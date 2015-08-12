@@ -25,12 +25,13 @@ Report a Bug
 ------------
 When a new "Blocker" high priority Bug is encountered in the Production environment enter::
 
-    devproc blocker "Details of issue encountered in Component X which will be added to the jira issue summary"
+    > devproc blocker "Details of issue encountered in Component X which will be added to the jira issue summary"
     *Bug TE-8 created and assigned a priority of "Blocker"
     This needs to be triage immediately. For help with triage enter:
     devproc triage --help*
 
 This will create a Bug and set:
+
 * Project: <jira-project-name> (from the config above)
 * Priority: Blocker
 
@@ -39,7 +40,7 @@ Triage
 
 To Triage this ticket enter::
 
-    devproc triage TE-8 5 arahim
+    > devproc triage TE-8 5 arahim
     *Issue TE-8 Triaged successfully*
 
 This will triage issue TE-8 by setting:
