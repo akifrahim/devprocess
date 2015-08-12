@@ -16,7 +16,7 @@ Setup
 
 When running the first time setup defaults by::
 
-    devproc config <jira-username> <jira-password> <jira-project-name> <jira-agile-board-name>
+    > devproc config <jira-username> <jira-password> <jira-project-name> <jira-agile-board-name>
 
 Usage
 =====
@@ -26,9 +26,9 @@ Report a Bug
 When a new "Blocker" high priority Bug is encountered in the Production environment enter::
 
     > devproc blocker "Details of issue encountered in Component X which will be added to the jira issue summary"
-    *Bug TE-8 created and assigned a priority of "Blocker"
+    Bug TE-8 created and assigned a priority of "Blocker"
     This needs to be triage immediately. For help with triage enter:
-    devproc triage --help*
+    devproc triage --help
 
 This will create a Bug and set:
 
@@ -54,8 +54,8 @@ Help
 
 To get help::
 
-./devprocess --help
+> devproc --help
 
-./devprocess blocker --help
+> devproc blocker --help
 
-./devprocess triage --help
+> devproc triage --help
