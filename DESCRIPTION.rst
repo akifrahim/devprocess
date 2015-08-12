@@ -41,7 +41,7 @@ Triage
 To Triage this ticket enter::
 
     > devproc triage TE-8 5 arahim
-    *Issue TE-8 Triaged successfully*
+    Issue TE-8 Triaged successfully
 
 This will triage issue TE-8 by setting:
 * Story Points: 5
