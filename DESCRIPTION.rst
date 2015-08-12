@@ -26,6 +26,7 @@ Report a Bug
 When a new "Blocker" high priority Bug is encountered in the Production environment enter::
 
 devproc blocker "Details of issue encountered in Component X which will be added to the jira issue summary"
+
 *Bug TE-8 created and assigned a priority of "Blocker"
 This needs to be triage immediately. For help with triage enter:
 ./devprocess triage --help*
