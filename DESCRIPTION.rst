@@ -8,7 +8,7 @@ Installation
 
 Download and install Python 2.7.10 if it is not already available and run::
 
-    pip install devprocess
+    > pip install devprocess
 
 
 Setup
@@ -54,8 +54,6 @@ Help
 
 To get help::
 
-> devproc --help
-
-> devproc blocker --help
-
-> devproc triage --help
+    > devproc --help
+    > devproc blocker --help
+    > devproc triage --help
