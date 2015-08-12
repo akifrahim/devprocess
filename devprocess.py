@@ -8,37 +8,43 @@ import sys
 import json
 
 #TODO: Do all of these
-# store password in keyring
 # tests (unit/functional)
 # logging
 # package/install (PyPy)
 # refactor (config/init command)
+# Implement an "update" command that can get all field names and update a JIRA issue accordingly (objects, strings etc)
 
 #TODO: Move these defaults to config file
 CONFIG_FILE_PATH = os.path.join(os.path.expanduser("~"), ".devconfig")
-#JIRA_URL = "http://jira"
+
+#defaults if not provided
+JIRA_URL = "http://jira"
 #PROJECT_NAME = "Test EOS"
 #BOARD_NAME = "Test EOS"
-#EPIC_NAME = "Production Bugs"
+EPIC_NAME = "[Ongoing] Production Bugs"
 TRIAGE_PRIORITY_BLOCKER_NAME = "Blocker"
 BUG_TYPE_NAME = "Bug"
 EPIC_TYPE_NAME = "Epic"
 #DEFAULT_ASSIGNEE_NAME = "arahim"
 
+#TODO: convert this to a decorator
+def is_configured():
+    if not os.path.isfile(CONFIG_FILE_PATH):
+        print "Unable to proceed. Configuration has not been performed. For help on confguration enter:\n" \
+              "'devproc config --help'"
+        return False
 
 def config(args):
     #store in config file
-
-    print args
+    #print args
 
     #validate config settings
-
     print "Validating configuration parameters..."
     try:
         jira = JIRA(args.jira_url, basic_auth=(args.user, args.password))
     except Exception as e:
         if e.status_code == 403:
-            print "Invalid username/password. Unable to connect to JIRA. Try again."
+            print "Unable to connect to JIRA. Check the jira-url, user and password. Try again."
             return
 
         print "Unable to connect to JIRA. Make sure you are on VPN or can get to your JIRA server from this network"
@@ -57,7 +63,7 @@ def config(args):
     # TODO: Get and store all required field names
     priority_field_name = None
     story_points_field_name = None
-    epic_link_field_name = None
+    epic_links_field_name = None
     epic_name_field_name = None
     sprint_field_name = None
     epic = None
@@ -69,7 +75,7 @@ def config(args):
         if field["name"] == "Story Points":
             story_points_field_name = field["id"]
         if field["name"] == "Epic Link":
-            epic_link_field_name = field["id"]
+            epic_links_field_name = field["id"]
         if field["name"] == "Epic Name":
             epic_name_field_name = field["id"]
         if field["name"] == "Sprint":
@@ -122,6 +128,14 @@ def config(args):
     config.set("Defaults", "board_name", '"{0}"'.format(args.boardname))
     config.set("Defaults", "epic_name", '"{0}"'.format(args.epic_name))
 
+    config.add_section("Internal Field IDs")
+    config.set("Internal Field IDs", "Priority", '"{0}"'.format(priority_field_name))
+    config.set("Internal Field IDs", "Story Points", '"{0}"'.format(story_points_field_name))
+    config.set("Internal Field IDs", "Epic Links", '"{0}"'.format(epic_links_field_name))
+    config.set("Internal Field IDs", "Epic Name", '"{0}"'.format(epic_name_field_name))
+    config.set("Internal Field IDs", "Sprint", '"{0}"'.format(sprint_field_name))
+
+
     #store password in keyring
     keyring.set_password("devprocess", args.user, args.password)
 
@@ -133,6 +147,9 @@ def config(args):
 
 
 def triage(args):
+
+    if not is_configured():
+        return
     #print args
     #print "IN TRIAGE"
     #print "Issue Key: {0}".format(args.issuekey)
@@ -145,43 +162,7 @@ def triage(args):
     
     jira =  JIRA(JIRA_URL, basic_auth=(args.user, args.password))
     issue = jira.issue(issue_key)
-    
-    #All of this should move to a config file eventually
-    #Get field name for Epic Links and assing it to the Epic "Production Bugs"
-    #Get Story Points field name and assign points
-    #Priority with a value of "Blocker"
-    #Assign it to the current Sprint
-    
-    # priority_field_name = None
-    # story_points_field_name = None
-    # epic_field_name = None
-    # sprint_field_name = None
-    # epic = None
-    # priority_blocker = None
-    #
-    # for field in jira.fields():
-    #     if field["name"] == "Priority":
-    #         priority_field_name = field["id"]
-    #     if field["name"] == "Story Points":
-    #         story_points_field_name = field["id"]
-    #     if field["name"] == "Epic Link":
-    #         epic_field_name = field["id"]
-    #     if field["name"] == "Sprint":
-    #         sprint_field_name = field["id"]
-    #
-    # for p in jira.priorities():
-    #     if p.name == TRIAGE_PRIORITY_BLOCKER_NAME:
-    #         priority_blocker = p
-    #         break
-    #
-    # if not priority_blocker:
-    #     print 'Could not find a priority named "Blocker". Issue will not be triaged properly\n'
-    #
-    # epic_issue = jira.search_issues("Project = '{0}' AND issueType = 'Epic' AND 'Epic Name' = '{1}'".format(PROJECT_NAME, EPIC_NAME))
-    #
-    # if not epic_issue:
-    #     print 'Could not find an Epic named "{0}". Issue will not be assigned to this Epic."\n'.format(EPIC_NAME)
-    #
+
     #get the current Sprint - DO NOT move this to a config file as this will change often
     #it should always be found on every invocation
     current_sprint = None
@@ -205,8 +186,8 @@ def triage(args):
         print "Could not find an active sprint. Issue will not be assigned to a sprint."
 
     data = {}
-    #Issue with JIRA API that casues a 500 error if fields are already set
-    #Only update that fields that are not set correctly
+    #Issue with JIRA API that causes a 500 error if fields are already set
+    #Only update fields that are not set correctly
     if getattr(issue.fields(), priority_field_name).id != str(priority_blocker.id):
         data[priority_field_name] = { "id": str(priority_blocker.id) }
 
@@ -236,16 +217,6 @@ def triage(args):
     
     if not is_assigned:
         data["assignee"] = { "name": assignee_name }
-
-#    data = {
-#        priority_field_name: { "id": str(priority_blocker.id) },
-#        epic_field_name: epic_issue[0].key,
-#        #epic_field_name: epic_issue[0].id,
-#        story_points_field_name: story_points,
-#        sprint_field_name: str(sprint_id),
-#        "assignee": { "name": assignee_name } 
-#
-#    }
     
     #TODO: add a debug log and write the following to it
     #print data
@@ -256,6 +227,9 @@ def triage(args):
 
 
 def blocker(args):
+
+    if not is_configured():
+        return
     #print args
     summary = args.summary
 
@@ -284,12 +258,8 @@ def blocker(args):
     
 
 def parse_arguments():
-    #parser = argparse.ArgumentParser()
+
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter)
-    #parser.add_argument('--user', action="store")
-    #parser.add_argument('--password', action="store")
-    #parser.add_argument("command", choices=["triage", "create"])
-    #help="triage a Bug as a Blocker in JIRA")
     sub_parsers = parser.add_subparsers()
 
     #define the config command
@@ -305,8 +275,6 @@ def parse_arguments():
         help='epic name for triaged bugs (default: "%(default)s")', metavar="")
     parser_config.set_defaults(func=config)
 
-
-    #parser_triage = sub_parsers.add_parser("triage", formatter_class=argparse.RawTextHelpFormatter,
     parser_triage = sub_parsers.add_parser("triage",
             help="triage a JIRA Bug to:\n" \
                 "\tset its Priority to 'Blocker'\n" \
@@ -322,15 +290,11 @@ def parse_arguments():
     parser_blocker.set_defaults(func=blocker)
 
     args = parser.parse_args()
-    #print args 
+
     args.func(args)
 
 def process():
     parse_arguments()
-    #check if config exists. if it doesn't then "init" it
-    #create a new command calle dinit to define a new config file and
-    #get all the field names required
-
 
 
 if __name__ == "__main__":
