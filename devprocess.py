@@ -34,7 +34,7 @@ EPIC_TYPE_NAME = "Epic"
 def is_configured():
     if not os.path.isfile(CONFIG_FILE_PATH):
         print "Unable to proceed. Configuration has not been performed. For help on confguration enter:\n" \
-              "'devproc config --help'"
+              "'devprocess config --help'"
         return False
     return True
 
@@ -220,7 +220,7 @@ def triage(args):
     
     if not board_id:
         print 'Unable to proceed. Did not find board "{0}". Ensure that this board exists and run:\n' \
-              'devproc config --help'.format(board_name)
+              'devprocess config --help'.format(board_name)
         return
 
 
@@ -317,7 +317,7 @@ def blocker(args):
 
     print 'Bug {0} created and assigned a priority of "Blocker"\n' \
             'This needs to be triaged immediately. For help with triage enter: \n' \
-            'devproc triage --help'.format(issue.key)
+            'devprocess triage --help'.format(issue.key)
     
 
 def parse_arguments():

@@ -108,7 +108,7 @@ setup(
     # TODO: Create executables
     entry_points={
         'console_scripts': [
-            'devproc=devprocess:process',
+            'devprocess=devprocess:process',
         ],
     },
 )
