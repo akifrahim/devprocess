@@ -317,7 +317,7 @@ def blocker(args):
 
     print 'Bug {0} created and assigned a priority of "Blocker"\n' \
             'This needs to be triaged immediately. For help with triage enter: \n' \
-            './devprocess triage --help'.format(issue.key)
+            'devproc triage --help'.format(issue.key)
     
 
 def parse_arguments():
