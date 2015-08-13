@@ -25,7 +25,7 @@ setup(
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
     # TODO: Setup single source versioning
-    version='0.9',
+    version='0.9.3',
 
     description='JIRA Tools',
     long_description=long_description,
